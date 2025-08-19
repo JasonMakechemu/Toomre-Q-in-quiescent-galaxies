@@ -116,6 +116,14 @@ Getting errors for ktau measurements
 '''
 from Functions_For_Q_NGC0524 import perturbedktau
 
+
+
+
+from Functions_For_Q_NGC0524 import plot_q_vs_parameters_side_by_side
+
+
+
+
 '''
 key variables
 '''
@@ -159,7 +167,7 @@ cos_inclination = np.cos(np.radians(inclination_of_galaxy)) #cos of the inclinat
 position_angle = np.radians(39.6) #position angle of galaxy in radians
 gravitational_constant = 0.004301  # (km/s)^2 pc/Msun [6.674e-11 SI units (CODATA2018)]
 galaxy_black_hole_mass = 4.0e8 
-radius_range = np.geomspace(0.65, 21, 100) # Radii in arscec where Vcirc has to be computed. 0.05 arcsec to 3 arcsec in 40 steps
+radius_range = np.geomspace(0.65, 8, 100) # Radii in arscec where Vcirc has to be computed. 0.05 arcsec to 3 arcsec in 40 steps
 
 
 pi = 3.1415
@@ -328,7 +336,6 @@ wcs = WCS(my_header)
 # Get pixel scale (in degrees) and convert to arcseconds
 pixel_scale_x = abs(wcs.wcs.cdelt[0]) * 3600 # arcsec/pixel
 pixel_scale_y = abs(wcs.wcs.cdelt[1]) * 3600 # arcsec/pixel
-#0.146 arcsec per pixel
 
 
 
@@ -387,9 +394,15 @@ plot_kappa(kappa_2d, moment_2, position, size_of_cutout)
 
 
 
+#%%
 
 
+fig = plt.figure(figsize=(8, 8))
 
+plt.plot(radius_range*actual_size, kappa, color='blue')
+
+plt.ylim([0, 400]) 
+plt.xlim([0, 1000]) 
 
 
 
@@ -402,10 +415,9 @@ run Q_gas map program
 '''
 
 
-Q, Q_to_plot, small_sigma_and_error, big_sigma_and_error = plot_Q(small_sigma, kappa_2d, pi, gravitational_constant, big_sigma, moment_2_data, 
+Q, Q_gas_to_plot, small_sigma_and_error, big_sigma_and_error = plot_Q(sigma_map_data, kappa_2d, pi, gravitational_constant, big_sigma, moment_2_data, 
                                                                   position, size_of_cutout, kappa_2d_error, kappa_2d_with_error, moment_2_plot, error,
                                                                   surface_density)
-
 
 
 #%%
@@ -432,7 +444,7 @@ surf_lum, sigma_lum, qobs_lum, surf_pot, sigma_pot, qobs_pot, xbin, ybin, mbh_vr
                                                                                                                  radius_range, actual_size)   
 
 
-
+#%%
 vrms, vrms_with_error = plot_for_vrms(surf_lum, sigma_lum, qobs_lum, surf_pot,
                                       sigma_pot, qobs_pot, mbh_vrms, xbin, ybin,
                                       inclination_of_galaxy, distance_to_galaxy,
@@ -461,10 +473,10 @@ plot_vrms(vrms_2d, moment_2, position, size_of_cutout, vrms_2d_with_error)
 '''
 run Q_star map program
 '''
-Q_star, Q_star_to_plot = plot_Q_star(vrms_2d, kappa_2d, pi, gravitational_constant,
-                     stellar_density_values, moment_2, position, 
-                     size_of_cutout, vrms_2d_with_error, kappa_2d_with_error,
-                     stellar_density_values_and_error)
+Q_star, Q_star_to_plot, flat_Q_star = plot_Q_star(vrms_2d, kappa_2d, pi, gravitational_constant,
+                                                  stellar_density_values, moment_2, position, 
+                                                  size_of_cutout, vrms_2d_with_error, kappa_2d_with_error,
+                                                  stellar_density_values_and_error)
 
 #%%
 
@@ -482,30 +494,24 @@ Q_total_error_to_plot, Q_error_cutout, selected_pixels_Q_total_error = Q_total_e
 
 
 
+'''
+Q (total) is plotted as a function of the galactocentric radius.
+'''
 
-qrfig, flat_q, flat_gc, ind, flat_q_error, axs, masked_flat_q, masked_flat_gc, masked_flat_q_error = generate_q_and_r_arrays(Q, Q_total, galactocentric_radius,
-                                                                                                                             Q_total_cutout, Q_error_cutout,
-                                                                                                                             gal_cutout, selected_pixels_Q_total,
-                                                                                                                             selected_pixels_Q_total_error, 
-                                                                                                                             gal_cutout_selected_pixels)
+
+qrfig, flat_q, flat_q_gas, flat_q_star, flat_gc, ind, flat_q_error, axs, masked_flat_q, masked_flat_gc, masked_flat_q_error = generate_q_and_r_arrays(Q, Q_total, galactocentric_radius,
+                                                                                                                                                      Q_total_cutout, Q_error_cutout,
+                                                                                                                                                      gal_cutout, selected_pixels_Q_total,
+                                                                                                                                                      selected_pixels_Q_total_error,
+                                                                                                                                                      gal_cutout_selected_pixels, Q_gas_to_plot,
+                                                                                                                                                      Q_star_to_plot)
 
 
 
 #%%
-q_gas_flat = Q_to_plot.flatten()
-q_gas_flat = q_gas_flat[~np.isnan(q_gas_flat)]
-
-q_star_flat = Q_star_to_plot.flatten()
-q_star_ind = np.argsort(flat_gc)
-q_star_flat = q_star_flat[q_star_ind]
-q_star_not_nan_idx = np.where(~np.isnan(q_star_flat))
-
-    
-q_star_flat = q_star_flat[q_star_not_nan_idx]
 
 
-
-print(np.nanmedian(q_gas_flat), np.nanmedian(q_star_flat))
+print(np.nanmedian(flat_q_gas), np.nanmedian(flat_q_star))
 print(np.nanmedian(kappa_2d), np.nanmedian(kappa_2d_error))
 
 
@@ -529,15 +535,14 @@ data_window, medians, lowpercentile, highpercentile, mean_bin_data, median_bin_d
                                                                                                                bin_size, selected_pixels)
 
 
-
 #%%
-two_dplot_gaseous_velocity_dispersion, two_dplot_gaseous_surface_density, two_dplot_stellar_velocity_dispersion, two_dplot_stellar_surface_density, two_dplot_epicyclic_frequency, flat_gvd, flat_gsd, flat_svd, flat_ssd, flat_ef, flat_gcr, ktau_Q_gvd, ktau_Q_svd, ktau_Q_gsd, flat_gvd_selected_pixels, flat_gsd_selected_pixels = components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_with_error,
+two_dplot_gaseous_velocity_dispersion, two_dplot_gaseous_surface_density, two_dplot_stellar_velocity_dispersion, two_dplot_stellar_surface_density, two_dplot_epicyclic_frequency, flat_gvd, flat_gsd, flat_svd, flat_ssd, flat_ef, flat_gcr, ktau_Q_gvd, ktau_Q_svd, ktau_Q_gsd, flat_gvd_selected_pixels, flat_gsd_selected_pixels, flat_kappa = components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_with_error,
                                                                                                                                                                                                                                                                                                                                                              stellar_density_values_and_error, kappa_2d_with_error,
                                                                                                                                                                                                                                                                                                                                                              galactocentric_radius, gal_cutout, actual_size, moment_2,
                                                                                                                                                                                                                                                                                                                                                              position, size_of_cutout, medians, flat_gc, flat_q, lowpercentile,
                                                                                                                                                                                                                                                                                                                                                              highpercentile, inclination_of_galaxy, black_hole_soi, co_disk_radius, 
                                                                                                                                                                                                                                                                                                                                                              gcr_mask, masked_flat_q, gal_cutout_selected_pixels,
-                                                                                                                                                                                                                                                                                                                                                             bin_size)
+                                                                                                                                                                                                                                                                                                                                                             bin_size, kappa_2d)
 
 
 #%%
@@ -553,13 +558,8 @@ perturbed_gvd_first_median, perturbed_gvd_second_median, perturbed_gvd_full_medi
 
 
 
+#%%
 
 
-
-
-
-
-
-
-
+plot_q_vs_parameters_side_by_side(flat_q, flat_gsd, flat_gvd, flat_kappa, window_size=55)
 
