@@ -600,6 +600,8 @@ def values_for_galactocentric_radius(xi, yi, position_angle, inclination_of_gala
 
     y_proj = (- xi * sin_a + yi * cos_a) # projection of the ???
     
+    #Deprojected means face-on.
+
 
     return cos_a, sin_a, x_proj, y_proj
 
@@ -635,7 +637,7 @@ def get_gcradius(x_proj, y_proj, moment_2, position, size_of_cutout, BMAJ_projec
     where the SMBH SOI ends, and the extent of the gaseous disk ends
     '''
     radius_min = 73
-    radius_max = 2500
+    radius_max = 904
     
     
     
@@ -646,7 +648,7 @@ def get_gcradius(x_proj, y_proj, moment_2, position, size_of_cutout, BMAJ_projec
     the range that we're interested in.
     '''
     bin_width = BMAJ_projected # major axis resolutionin parsec
-    max_radius = 2500 # co disk radius in parsec
+    max_radius = 904 # co disk radius in parsec
     
     num_bins = int(np.ceil(max_radius/bin_width)) # number of bins
     bin_edges = np.arange(0, (num_bins + 1)*bin_width, bin_width) # upper and lower bin limits in steps of bin width
@@ -820,7 +822,7 @@ def mge_vcirc_example(arcsec_to_radian, inclination_of_galaxy, distance_to_galax
     '''
     
     plt.axvline(x=black_hole_soi, color='purple', ls='--', lw=2,) 
-    plt.plot(rad, vcirc, color='blue')
+    #plt.plot(rad, vcirc, color='blue')
     plt.errorbar(rad, vcirc_median*np.sin(np.radians(inclination_of_galaxy)),
                  unumpy.std_devs(vcirc_with_error*np.radians(inclination_of_galaxy)), 0,
                  label="Circular Velocity", fmt="o")
@@ -1114,21 +1116,25 @@ def get_kappa_values(pi, CO_conversion_factor, radius_range, vcirc, gradient_of_
     print(dec_kappa)
 
     # Create interpolation function
-    interp_func = interp1d(rad, dec_kappa, kind='cubic', fill_value="extrapolate")
+    interp_func = interp1d(rad, dec_kappa, kind='cubic', fill_value=0, bounds_error=False)
     #interp_func = interp1d(radius_range, dec_kappa, kind='linear', fill_value="extrapolate")
 
 
     # Interpolate kappa values over the 2D radial grid
     kappa_2d = interp_func(galactocentric_radius)
 
+    
+    import matplotlib.colors as mcolors
 
     # Plot the kappa map
     plt.figure(figsize=(8, 6))
-    plt.imshow(kappa_2d, origin='lower', cmap='plasma', extent=[-max_radius, max_radius, -max_radius, max_radius])
-    plt.colorbar(label='Interpolated Kappa (0 to $10^8$)')
-    plt.xlabel('X-axis (arbitrary units)')
-    plt.ylabel('Y-axis (arbitrary units)')
-    plt.title('2D Interpolated Kappa Map (Radius Scaled by 80)')
+    norm = mcolors.LogNorm(vmin=1, vmax=1000)  # Log scale from 1 to 1000
+    plt.imshow(kappa_2d, origin='lower', cmap='plasma', extent=[-max_radius, max_radius, -max_radius, max_radius], norm=norm)
+    cbar = plt.colorbar(label='Interpolated Kappa')
+    plt.xlabel('X-axis pc')
+    plt.ylabel('Y-axis pc')
+    plt.title('2D Interpolated Kappa Map')
+    plt.savefig("kappa map 0524.png", dpi=300)
     plt.show()
 
 
@@ -1165,7 +1171,7 @@ def get_kappa_values(pi, CO_conversion_factor, radius_range, vcirc, gradient_of_
 
 
     # Create interpolation function
-    interp_func_error = interp1d(rad, dec_kappa_error, kind='linear', fill_value="extrapolate")
+    interp_func_error = interp1d(rad, dec_kappa_error, kind='cubic', fill_value="0", bounds_error=False)
     #interp_func = interp1d(radius_range, dec_kappa, kind='linear', fill_value="extrapolate")
 
 
@@ -1174,7 +1180,7 @@ def get_kappa_values(pi, CO_conversion_factor, radius_range, vcirc, gradient_of_
 
 
 
-    kappa_2d_with_error = unumpy.uarray(kappa_2d, kappa_2d_error)
+    kappa_2d_with_error = unumpy.uarray(kappa_2d, np.abs(kappa_2d_error))
 
     unique_radii = numpy.unique(galactocentric_radius)
     sorted_radii = numpy.sort(unique_radii)
@@ -1308,19 +1314,15 @@ def plot_Q(small_sigma, kappa_2d, pi, gravitational_constant,
     small_sigma_and_error = unumpy.uarray((small_sigma.data), moment_2_plot.data) #linewidth
     big_sigma_and_error = unumpy.uarray(surface_density.data, error.data) #moment_0 (?)
     
-    print("Median ew, and median gsd")
-    print(np.nanmedian(unumpy.std_devs(small_sigma_and_error)), np.nanmedian(unumpy.std_devs(big_sigma_and_error)))
-
-      
-    Q = (small_sigma_and_error*kappa_2d_with_error) / (pi*gravitational_constant*big_sigma_and_error)
     
-    Q_to_plot = unumpy.nominal_values(Q)
 
- 
+    Q = (small_sigma_and_error*kappa_2d_with_error) / (pi*gravitational_constant*big_sigma_and_error)
+    Q_gas_to_plot = unumpy.nominal_values(Q)
+
+
+
     hdu = moment_2_data.to_hdu()
-
-    #hdu = fits.ImageHDU(data=Q_to_plot, header=moment_2.hdu.header)
-    cutout = Cutout2D(Q_to_plot, position, size_of_cutout, wcs=moment_2_data.wcs)
+    cutout = Cutout2D(Q_gas_to_plot, position, size_of_cutout, wcs=moment_2_data.wcs)
 
 
     Q_fig = plt.figure(figsize=(8, 8))
@@ -1341,7 +1343,7 @@ def plot_Q(small_sigma, kappa_2d, pi, gravitational_constant,
     Q_fig.savefig("Map of Q_gas parameter in NGC 0524 (strict mask).svg", format='svg', dpi=600)
     Q_fig.savefig("Map of Q_gas parameter in NGC 0524 (strict mask).png", format='png', dpi=600)
 
-    return Q, Q_to_plot, small_sigma_and_error, big_sigma_and_error
+    return Q, Q_gas_to_plot, small_sigma_and_error, big_sigma_and_error
 
     
 
@@ -1382,15 +1384,29 @@ def plot_stellar_surface_density(surface_luminosity, moment_2_data, position, si
         sd_fig = plt.figure(figsize=(5, 4)) # stellar density fig
         ax = sd_fig.add_subplot(111, projection=moment_2_data.wcs) #to get coordinates in ra and dec
         ax.set_xlabel('RA (J2000)')   # Set bottom x-axis label
-        ax.set_ylabel('Dec (J2000)')  # Set left y-axis label
+        ax.set_ylabel('Dec. (J2000)')  # Set left y-axis label
 
         # Access RA and Dec coordinates
         ra = ax.coords['ra']
         dec = ax.coords['dec']
 
         # Set the number of ticks for RA and Dec
-        ra.set_ticks(number=2, direction='in', color='white')   # Set 5 ticks for RA
-        dec.set_ticks(number=3, direction='in', color='white')  # Set 5 ticks for Dec
+        ra.set_ticks(number=2, direction='in', color='white', size=6)   # Set 5 ticks for RA
+        dec.set_ticks(number=3, direction='in', color='white', size=6)  # Set 5 ticks for Dec
+
+
+
+        # Set minor ticks for both axes (RA/Longitude and Dec/Latitude)
+        ra.set_minor_frequency(5)  # RA or Longitude
+        dec.set_minor_frequency(5)  # Dec or Latitude
+    
+        # Display minor ticks
+        ra.display_minor_ticks(True)
+        dec.display_minor_ticks(True)
+
+
+
+
 
         textstr = 'NGC0524'
 
@@ -1414,7 +1430,7 @@ def plot_stellar_surface_density(surface_luminosity, moment_2_data, position, si
         plt.ylim(0, 181)  # Adjust y limits to zoom
         
         cbar = plt.colorbar(stellar_map, pad=0)
-        cbar.set_label(r'$\rm \log_{10}(\Sigma_\ast[M_\odot pc^{-2}])$', size=12, labelpad=12)
+        cbar.set_label(r'$\rm \log_{10}(\Sigma_\ast/M_\odot pc^{-2})$', size=12, labelpad=25, rotation=-90)
         
 
         sd_fig.savefig("Stellar Surface Density in CO region in NGC 0524 (strict mask).svg", format='svg',
@@ -1479,10 +1495,10 @@ def plot_for_vrms(surf_lum, sigma_lum, qobs_lum, surf_pot, sigma_pot, qobs_pot, 
     
     jam = jam_axi_proj(
              surf_lum, sigma_lum, qobs_lum, surf_pot, sigma_pot, qobs_pot,
-             inc, mbh_vrms, distance, xbin/actual_size, ybin/actual_size, align='cyl', analytic_los=True,
+             inc, mbh_vrms, distance, xbin/actual_size, ybin/actual_size, align='sph', analytic_los=True,
              beta=None, data=None, epsrel=1e-2, errors=None, flux_obs=None,
              gamma=None, goodbins=None, interp=True, kappa=None,
-             logistic=False, ml=mass_to_light_ratio, moment='zz', nang=10, nlos=1500,
+             logistic=False, ml=mass_to_light_ratio, moment='xx', nang=10, nlos=1500,
              nodots=False, normpsf=1., nrad=30, pixang=0., pixsize=0.,
              plot=True, quiet=False, rbh=0.01, sigmapsf=0., step=0)
     
@@ -1506,10 +1522,10 @@ def plot_for_vrms(surf_lum, sigma_lum, qobs_lum, surf_pot, sigma_pot, qobs_pot, 
 
         jam_perturbed = jam_axi_proj(
                  surf_lum, sigma_lum, qobs_lum, surf_pot, sigma_pot, qobs_pot,
-                 inc, perturbed_mbh, distance, xbin/actual_size, ybin/actual_size, align='cyl', analytic_los=True,
+                 inc, perturbed_mbh, distance, xbin/actual_size, ybin/actual_size, align='sph', analytic_los=True,
                  beta=None, data=None, epsrel=1e-2, errors=None, flux_obs=None,
                  gamma=None, goodbins=None, interp=True, kappa=None,
-                 logistic=False, ml=perturbed_ml, moment='zz', nang=10, nlos=1500,
+                 logistic=False, ml=perturbed_ml, moment='xx', nang=10, nlos=1500,
                  nodots=False, normpsf=1., nrad=30, pixang=0., pixsize=0.,
                  plot=True, quiet=False, rbh=0.01, sigmapsf=0., step=0)
         
@@ -1571,7 +1587,6 @@ def get_vrms_values(unique_radii, sorted_radii,
                   
     '''
     
-
     unique_vrms = numpy.interp(unique_radii, xbin, vrms)
     
     unique_vrms_error = numpy.interp(unique_radii, xbin, unumpy.std_devs(vrms_with_error))
@@ -1677,7 +1692,9 @@ def plot_Q_star(vrms_2d, kappa_2d, pi, gravitational_constant,
     Q_star = unumpy.uarray(Q_star_only, Q_star_error)
     
     Q_star_to_plot = unumpy.nominal_values(Q_star)
-    
+    flat_Q_star = (Q_star_to_plot).flatten()
+    flat_Q_star[flat_Q_star == 0] = np.nan
+    print(np.nanmedian(flat_Q_star))
     
     hdu = fits.ImageHDU(data=Q_star_to_plot, header=moment_2.hdu.header)
     cutout = Cutout2D(hdu.data, position, size_of_cutout, wcs=moment_2.wcs)
@@ -1712,7 +1729,7 @@ def plot_Q_star(vrms_2d, kappa_2d, pi, gravitational_constant,
 
     plt.show()
     
-    return Q_star, Q_star_to_plot
+    return Q_star, Q_star_to_plot, flat_Q_star
     
 
 
@@ -1749,6 +1766,7 @@ def plot_Q_total(Q, Q_star, moment_2, position, size_of_cutout, gal_cutout_selec
 
 
     Q_total = ((1/Q) + (1/Q_star)) ** -1
+
 
     Q_total_to_plot = unumpy.nominal_values(Q_total)    
     
@@ -1852,10 +1870,8 @@ def Q_total_error_map(moment_2, position, size_of_cutout, Q_total, gal_cutout_se
     Q_total_error_to_plot = unumpy.std_devs(Q_total)
 
 
-
     hdu = fits.ImageHDU(data=Q_total_error_to_plot, header=moment_2.hdu.header)
     Q_error_cutout = Cutout2D(hdu.data, position, size_of_cutout, wcs=moment_2.wcs)
-        
    
     Q_error_fig = plt.figure(figsize=(8, 8))
     ax = Q_error_fig.add_subplot(projection=Q_error_cutout.wcs) #to get coordinates in ra and dec
@@ -1923,7 +1939,8 @@ def generate_q_and_r_arrays(Q, Q_total, galactocentric_radius,
                             Q_total_cutout, Q_error_cutout,
                             gal_cutout, selected_pixels_Q_total,
                             selected_pixels_Q_total_error, 
-                            gal_cutout_selected_pixels):
+                            gal_cutout_selected_pixels, Q_gas_to_plot,
+                            Q_star_to_plot):
     
     qrfig, axs = plt.subplots(figsize=(8, 8))
     
@@ -1937,7 +1954,7 @@ def generate_q_and_r_arrays(Q, Q_total, galactocentric_radius,
     Q_total_err[idx] = np.nan    
     QvR_total = unp.uarray(Q_total_val, Q_total_err) # Qvr - Q vs R - Q against R
     
-    
+ 
     
     '''
     Gets Q vs R as a numpy array (masked)
@@ -1950,15 +1967,15 @@ def generate_q_and_r_arrays(Q, Q_total, galactocentric_radius,
      
 
     
-
-
     
     '''
     Q total and Q total error
     '''
     Q_to_plot = unumpy.nominal_values(QvR_total)  
     Q_error_to_plot = unumpy.std_devs(QvR_total)
-    
+
+
+
     '''
     Q total and Q total error (masked)
     '''
@@ -1967,20 +1984,20 @@ def generate_q_and_r_arrays(Q, Q_total, galactocentric_radius,
     
 
 
-
-
-    
     '''
     flattens to 1d so they can be plotted, sorts with galactocentric radius.
     '''
     flat_q = Q_to_plot.flatten()
+    flat_q_gas = Q_gas_to_plot.flatten()
+    flat_q_star = Q_star_to_plot.flatten()
     flat_gc = (gal_cutout.data).flatten()  
-
     flat_q_error = (Q_error_cutout.data).flatten()
     
     ind = np.argsort(flat_gc)
     
     flat_q = flat_q[ind]
+    flat_q_gas = flat_q_gas[ind]
+    flat_q_star = flat_q_star[ind]
     flat_gc = flat_gc[ind]
     flat_q_error = flat_q_error[ind]
     
@@ -1989,13 +2006,14 @@ def generate_q_and_r_arrays(Q, Q_total, galactocentric_radius,
 
     
     flat_q = flat_q[not_nan_idx]
+    flat_q_gas = flat_q_gas[not_nan_idx]
+    flat_q_star = flat_q_star[not_nan_idx]
     flat_gc = flat_gc[not_nan_idx]
     
     
     flat_q_error = flat_q_error[not_nan_idx_error]
-    
-    
-    
+
+
     '''
     flattens to 1d so they can be plotted, sorts with galactocentric radius masked
     '''
@@ -2019,12 +2037,13 @@ def generate_q_and_r_arrays(Q, Q_total, galactocentric_radius,
     
     masked_flat_q_error = masked_flat_q_error[masked_not_nan_idx_error]
     
-
+    
+    
     print("Masked median Q", np.nanmedian(masked_flat_q))
     print("median Q", np.nanmedian(flat_q))
     print("Masked median Q error", np.nanmedian(masked_flat_q_error))
-
-    return qrfig, flat_q, flat_gc, ind, flat_q_error, axs, masked_flat_q, masked_flat_gc, masked_flat_q_error
+    
+    return qrfig, flat_q, flat_q_gas, flat_q_star, flat_gc, ind, flat_q_error, axs, masked_flat_q, masked_flat_gc, masked_flat_q_error
 
 
 
@@ -2190,7 +2209,7 @@ def q_as_func_of_r(flat_gc, flat_q, qrfig, flat_q_error,
     Place a representative error bar in corner of 'Q as function of R' plot.
     '''
     
-    axis_coordinates_of_representative_error_bar = (120, 100) #position of example error bar
+    axis_coordinates_of_representative_error_bar = (140, 65) #position of example error bar
     screen_coordinates_of_representative_error_bar = axqr.transAxes.transform(axis_coordinates_of_representative_error_bar)
     screen_to_data_transform = axqr.transData.inverted().transform
     data_coordinates_of_representative_error_bar = screen_to_data_transform(screen_coordinates_of_representative_error_bar)
@@ -2289,7 +2308,7 @@ def q_as_func_of_r(flat_gc, flat_q, qrfig, flat_q_error,
     '''
     
 
-    image_of_Q_total = plt.imshow(Q_total_cutout.data, cmap='inferno', vmin=0, vmax=100, origin='lower') 
+    image_of_Q_total = plt.imshow(Q_total_cutout.data, cmap='inferno', vmin=0, vmax=60, origin='lower') 
 
     plt.xlim(0, 181)  # Adjust x limits to zoom
     plt.ylim(0, 181)  # Adjust y limits to zoom
@@ -2344,7 +2363,7 @@ def q_as_func_of_r(flat_gc, flat_q, qrfig, flat_q_error,
     ax1.tick_params(axis='both', direction='in', which='both')  # Applies to major and minor ticks
     
     # Add vertical lines
-    #ax1.axvline(x=black_hole_soi, color='black', ls='--', lw=2, zorder=5, label=r'$R_{\rm SOI}$')
+    ax1.axvline(x=black_hole_soi, color='black', ls='--', lw=2, zorder=5, label=r'$R_{\rm SOI}$')
     #ax1.axvline(x=299.634, color='blue', ls='--', lw=2, zorder=6, label=r'$R_{\rm disk}$')
     
     # Minor ticks
@@ -2358,22 +2377,9 @@ def q_as_func_of_r(flat_gc, flat_q, qrfig, flat_q_error,
     ax1.set_xlabel(r"$R_{\rm gal}$ (pc)", fontsize=14)
     ax1.set_ylabel(r'$Q_{\rm T}$', fontsize=14)
     ax1.legend(loc=1, fontsize=11)
-    ax1.set_xlim([black_hole_soi, np.nanmax(masked_flat_gc)])
-    ax1.set_ylim([0, 120])
-    ax1.set_xticks(np.arange(0, np.nanmax(masked_flat_gc), 200))
-    
-    
-    
-    
-    
-    
-
-    
-    
-    
-    
-    
-    
+    ax1.set_xlim([0, 904])
+    ax1.set_ylim([0, 80])
+    ax1.set_xticks(np.arange(0, 904, 200)) #904pc is 8 arcsec
     
     
     
@@ -2386,7 +2392,7 @@ def q_as_func_of_r(flat_gc, flat_q, qrfig, flat_q_error,
     #fig, ax2 = plt.subplots()  # Create a standard Matplotlib axes without WCS
     
     ax2.set_xlabel('RA (J2000)')
-    ax2.set_ylabel('Dec (J2000)')
+    ax2.set_ylabel('Dec. (J2000)')
     
     
     # Set the number of ticks for RA and Dec
@@ -2398,12 +2404,9 @@ def q_as_func_of_r(flat_gc, flat_q, qrfig, flat_q_error,
 
     
     # Plot image in pixel coordinates
-    image_of_Q_total = ax2.imshow(Q_total_cutout.data, cmap='inferno', vmin=0, vmax=60, origin='lower')
+    image_of_Q_total = ax2.imshow(Q_total_cutout.data, cmap='inferno', vmin=0, vmax=40, origin='lower')
     
-    
-    
-    
-    
+
     
     from matplotlib.patches import Rectangle
 
@@ -2430,7 +2433,27 @@ def q_as_func_of_r(flat_gc, flat_q, qrfig, flat_q_error,
              verticalalignment='top', bbox=props)
 
     cbar = plt.colorbar(image_of_Q_total, ax=ax2, pad=0)
-    cbar.set_label(r'$Q_{\rm T}$', size=14, labelpad=10)
+    cbar.set_label(r'$Q_{\rm T}$', size=14, labelpad=20, rotation=-90)
+    
+    
+    # Access RA and Dec coordinates
+    ra2 = ax2.coords['ra']
+    dec2 = ax2.coords['dec']
+
+    # Set the number of ticks for RA and Dec
+    ra2.set_ticks(number=2, direction='in', color='black', size=6)   # Set 5 ticks for RA
+    dec2.set_ticks(number=3, direction='in', color='black', size=6)  # Set 5 ticks for Dec
+
+    # Set minor ticks for both axes (RA/Longitude and Dec/Latitude)
+    ra2.set_minor_frequency(5)  # RA or Longitude
+    dec2.set_minor_frequency(5)  # Dec or Latitude
+
+    # Display minor ticks
+    ra2.display_minor_ticks(True)
+    dec2.display_minor_ticks(True)
+
+
+    
     
     # =========================
     # Save and Show the Figure
@@ -2444,11 +2467,7 @@ def q_as_func_of_r(flat_gc, flat_q, qrfig, flat_q_error,
         
     
     
-    
-    
-    
-    
-    
+
     
     return data_window, medians, lowpercentile, highpercentile, mean_bin_data, median_bin_data, binned_x
     
@@ -2503,7 +2522,8 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
                           galactocentric_radius, gal_cutout, actual_size, moment_2,
                           position, size_of_cutout, medians, flat_gc, flat_q, lowpercentile,
                           highpercentile, inclination_of_galaxy, black_hole_soi, co_disk_radius, 
-                          gcr_mask, masked_flat_q, gal_cutout_selected_pixels, bin_size):
+                          gcr_mask, masked_flat_q, gal_cutout_selected_pixels, bin_size,
+                          kappa_2d):
     
     
     '''
@@ -2573,7 +2593,8 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     
     flat_ef = (ef_cutout).flatten()
     flat_gcr = (gal_cutout.data).flatten()  
-   
+    
+    flat_kappa = kappa_2d.flatten()
 
 
     '''
@@ -2608,7 +2629,7 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     flat_ssd = flat_ssd[ind]
     flat_ef = flat_ef[ind]
     flat_gcr = flat_gcr[ind]
-    
+    flat_kappa = flat_kappa[ind]
  
     #masked
     selected_pixels_ind = np.argsort(flat_gcr_selected_pixels)
@@ -2639,14 +2660,15 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     
     flat_ef = flat_ef[not_nan_idx]      
     
-    
+    flat_kappa = flat_kappa[not_nan_idx]
+
     
     flat_gcr_gvd = flat_gcr[not_nan_idx]
     flat_gcr_gsd = flat_gcr[not_nan_idx]
     flat_gcr_svd = flat_gcr[not_nan_idx]
     flat_gcr_ssd = flat_gcr[not_nan_idx]
     flat_gcr_ef = flat_gcr[not_nan_idx]
-
+    flat_gcr_kappa = flat_kappa[not_nan_idx]
 
 
 
@@ -2759,10 +2781,6 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
 
 
 
-
-
-
-
     '''
     plots each of the parameters as a function of galactocentric radius.
     '''
@@ -2803,8 +2821,8 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     plt.xlim([36, 224.6])
     plt.ylim([0, 15]) #q values
     plt.xticks(np.arange(36, 224.6, 40))
-    '''
     
+    '''
     
     
     '''
@@ -3082,6 +3100,7 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     
     
     from mpl_toolkits.axes_grid1 import make_axes_locatable
+    from matplotlib.ticker import MultipleLocator, AutoMinorLocator
 
     divider = make_axes_locatable(ax1)
     cax = divider.append_axes("right", size="5%", pad=0.0)  # Adjust size and padding
@@ -3090,24 +3109,35 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     sc = ax1.scatter(flat_gvd_selected_pixels, masked_flat_q, 
                      c=flat_gc, cmap='inferno', alpha=1, s=5,
                      edgecolors='none', label='Kendall-Tau statistic = ' + 
-                     '-0.10' + r" $\pm$ 0.01")  # Example value
+                     '0.08' + r" $\pm$ 0.01")  # Example value
     
     # Add colorbar to the new axis
     cbar = plt.colorbar(sc, cax=cax)
-    cbar.set_label(r'Galactocentric Radius (kpc)')
+    cbar.set_label(r'Galactocentric radius (pc)', rotation=-90, labelpad=20)
     
     
-    tick_locator = plt.MultipleLocator(400)
+    tick_locator = plt.MultipleLocator(200)
     cbar.locator = tick_locator
     cbar.update_ticks()
     
     
     
-    ax1.set_xlabel(r"Molecular gas effective width - $\rm \sigma_{EW}$ ($\rm {km\,s^{-1}}$)", fontsize=14)
+    ax1.set_xlabel(r"$\rm \sigma_{EW}$ ($\rm {km\,s^{-1}}$)", fontsize=14)
     ax1.set_ylabel(r'$\rm Q_{T}$', fontsize=14)
     ax1.legend(loc=1)
     ax1.set_xticks(np.arange(0, 35, 10))
-    ax1.tick_params(axis='both', direction='in')
+    
+    # Add minor ticks to ax1
+    ax1.minorticks_on()
+    
+    # Optionally also enable minor and major ticks on top and right
+    ax1.tick_params(which='minor', top=True, right=True)
+    ax1.tick_params(which='major', top=True, right=True)
+
+    ax1.xaxis.set_minor_locator(AutoMinorLocator(2))  # For 2 minor ticks between each major
+    ax1.yaxis.set_minor_locator(AutoMinorLocator(2))
+    ax1.tick_params(axis='both', which='minor', direction='in', length=2)
+    ax1.tick_params(axis='both', which='major' ,direction='in', length=6)
 
 
     
@@ -3124,21 +3154,37 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     sc2 = ax2.scatter(flat_gsd_selected_pixels, masked_flat_q,
                 c=flat_gc, cmap='inferno', alpha=1, s=5,
                 edgecolors='none', label='Kendall-Tau statistic = ' +
-                '-0.20' + r" $\pm$ 0.01")
+                '0.02' + r" $\pm$ 0.01")
     
     cbar = plt.colorbar(sc2, cax=cax2)
-    cbar.set_label(r'Galactocentric Radius (kpc)')
+    cbar.set_label(r'Galactocentric radius (pc)', rotation=-90, labelpad=20)
     
     
-    tick_locator = plt.MultipleLocator(400)
+    tick_locator = plt.MultipleLocator(200)
     cbar.locator = tick_locator
     cbar.update_ticks()
     
     
-    ax2.set_xlabel(r"Molecular gas surface density - $\rm \Sigma_{g}$ (K $\rm {km\,s^{-1}}$)", fontsize=14) 
+    ax2.set_xlabel(r"$\rm \Sigma_{g}$ (K $\rm {km\,s^{-1}}$)", fontsize=14) 
     ax2.set_ylabel(r'$\rm Q_{T}$', fontsize=14)
     ax2.legend(loc=1)
     ax2.set_xticks(np.arange(0, 401, 100))
+    
+    
+    # Add minor ticks to ax1
+    ax2.minorticks_on()
+    
+    # Optionally also enable minor and major ticks on top and right
+    ax2.tick_params(which='minor', top=True, right=True)
+    ax2.tick_params(which='major', top=True, right=True)
+    
+    
+    ax2.xaxis.set_minor_locator(AutoMinorLocator(2))  # For 2 minor ticks between each major
+    ax2.yaxis.set_minor_locator(AutoMinorLocator(2))
+    ax2.tick_params(axis='both', which='minor', direction='in', length=2)
+    ax2.tick_params(axis='both', which='major' ,direction='in', length=6)
+    
+    
     ax2.tick_params(axis='both', direction='in')
 
     # =========================
@@ -3150,11 +3196,6 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     
     plt.show()
     
-
-
-
-
-
 
 
 
@@ -3192,7 +3233,7 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     
     # Add colorbar to the new axis
     cbar = plt.colorbar(sc, cax=cax)
-    cbar.set_label(r'Galactocentric Radius (kpc)')
+    cbar.set_label(r'Galactocentric Radius (pc)')
     
     
     tick_locator = plt.MultipleLocator(200)
@@ -3225,7 +3266,7 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
                 str(0.00) + r" $\pm$ 0.02")
     
     cbar = plt.colorbar(sc2, cax=cax2)
-    cbar.set_label(r'Galactocentric Radius (kpc)')
+    cbar.set_label(r'Galactocentric Radius (pc)')
     
     
     tick_locator = plt.MultipleLocator(200)
@@ -3247,15 +3288,6 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     fig1.savefig("Combined_correlation_plot second half.png", format='png', dpi=300, bbox_inches='tight')
     
     plt.show()
-
-
-
-
-
-
-
-
-
 
 
 
@@ -3292,7 +3324,7 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     
     # Add colorbar to the new axis
     cbar = plt.colorbar(sc, cax=cax)
-    cbar.set_label(r'Galactocentric Radius (kpc)')
+    cbar.set_label(r'Galactocentric Radius (pc)')
     
     
     tick_locator = plt.MultipleLocator(200)
@@ -3325,7 +3357,7 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
                 str(-0.13) + r" $\pm$ 0.02")
     
     cbar = plt.colorbar(sc2, cax=cax2)
-    cbar.set_label(r'Galactocentric Radius (kpc)')
+    cbar.set_label(r'Galactocentric Radius (pc)')
     
     
     tick_locator = plt.MultipleLocator(200)
@@ -3360,148 +3392,174 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
             two_dplot_stellar_velocity_dispersion, two_dplot_stellar_surface_density,
             two_dplot_epicyclic_frequency, flat_gvd, flat_gsd, flat_svd, flat_ssd,
             flat_ef, flat_gcr, ktau_Q_gvd, ktau_Q_svd, ktau_Q_gsd, flat_gvd_selected_pixels,
-            flat_gsd_selected_pixels)
+            flat_gsd_selected_pixels, flat_kappa)
 
      
     
     
-    
+
+
 def plotderivedproducts(position, size_of_cutout, cube, sigma_map_data, moment_1_data, moment_0_data, moment_0, mean_velocity):
-    
-    image_data = moment_0.data          # Get the image data
-    wcs = WCS(moment_0.header)          # Get WCS from the header
- 
-    # Generate some example images as numpy arrays
-    image1 = (sigma_map_data)
-    image2 = (moment_1_data - mean_velocity)
-    image3 = (moment_0_data)
-    
-    # Create a figure with 1 row and 3 columns
+    image_data = moment_0.data
+    wcs = WCS(moment_0.header)
+
+    # Image arrays
+    image1 = sigma_map_data
+    image2 = moment_1_data - mean_velocity
+    image3 = moment_0_data
+
+    # Create figure and axes
     fig, axes = plt.subplots(1, 3, figsize=(15, 4), sharey=True, subplot_kw={'projection': wcs})
 
 
-
-
-    # Display each image on a different axis with fixed aspect ratio
-    im = axes[0].imshow(image1, cmap='inferno', vmin=0, vmax=20, aspect='equal')
-    
-    ra = axes[0].coords['ra']  # Access RA and Dec coordinates
-    dec = axes[0].coords['dec']
-    
-    ra.set_ticks(number=2, direction='in')  # Set the number of ticks for RA and Dec
-    dec.set_ticks(number=3, direction='in')  
-    
     textstr = 'NGC0524'
     props = dict(boxstyle='square', facecolor='white', alpha=0.5)
-    axes[0].text(0.05, 0.95, textstr, transform=axes[0].transAxes, fontsize=14,
-                 verticalalignment='top', bbox=props)    
     
-    # Set the axis limits (zoom into the desired region)
-    axes[0].set_xlim(0, 181)  # Adjust x limits to zoom
-    axes[0].set_ylim(0, 181)  # Adjust y limits to zoom
-
+    
     
 
-    # Create the colorbar inside the plot
-    # Adjust 'fraction' and 'pad' as needed
-    cbar = plt.colorbar(im, ax=axes, orientation='horizontal', fraction=0.046, pad=0.04)
-    cbar.set_ticks([0, 10, 20])
+    
+    
 
-    # Optional: Adjust the position of the colorbar
-    cbar.ax.set_position([0.1, 0.2, 0.428, 0.025])  # [left, bottom, width, height]
+    # First subplot: Integrated Intensity
+    axes[0].set_facecolor("black")
+    im0 = axes[0].imshow(image_data, cmap='inferno', vmin=0, vmax=40, aspect='equal')
+    ra0, dec0 = axes[0].coords['ra'], axes[0].coords['dec']
+    ra0.set_ticks(number=3, direction='in', color='white')
+    ra0.set_minor_frequency(5)
+    ra0.set_ticklabel_visible(True)
+    dec0.set_ticks(number=3, direction='in')
+    axes[0].text(0.05, 0.95, textstr, transform=axes[0].transAxes, fontsize=14, verticalalignment='top', bbox=props)
+    axes[0].set_xlim(0, 181)
+    axes[0].set_ylim(0, 181)
+    
+    # Access RA and Dec coordinates
+    ra0 = axes[0].coords['ra']
+    dec0 = axes[0].coords['dec']
+
+    # Set the number of ticks for RA and Dec
+    ra0.set_ticks(number=2, direction='in', color='white', size=6)   # Set 5 ticks for RA
+    dec0.set_ticks(number=3, direction='in', color='white', size=6)  # Set 5 ticks for Dec
+    
+
+    # Set minor ticks for both axes (RA/Longitude and Dec/Latitude)
+    ra0.set_minor_frequency(5)  # RA or Longitude
+    dec0.set_minor_frequency(5)  # Dec or Latitude
+
+    # Display minor ticks
+    ra0.display_minor_ticks(True)
+    dec0.display_minor_ticks(True)
+
+
+    # Colorbar for plot 0
+    cbar0 = plt.colorbar(im0, ax=axes, orientation='horizontal', fraction=0.046, pad=0.04)
+    cbar0.set_ticks([0, 25, 50])
+    cbar0.ax.set_position([0.1, 0.2, 1.2116, 0.025])
+    cbar0.ax.tick_params(colors='black')
+    cbar0.outline.set_edgecolor("black")
 
 
 
 
 
-
-
-
-
-
-
-    # Repeat for the other images
+    # Second subplot: Mean velocity
     im1 = axes[1].imshow(image2, cmap='RdBu_r', vmin=-180, vmax=180, aspect='equal')
+    ra1, dec1 = axes[1].coords['ra'], axes[1].coords['dec']
+    ra1.set_ticks(number=3, direction='in')
+    ra1.set_minor_frequency(5)
+    ra1.set_ticklabel_visible(True)
+    dec1.set_ticks(number=0, direction='in')
+    axes[1].text(0.05, 0.95, textstr, transform=axes[1].transAxes, fontsize=14, verticalalignment='top', bbox=props)
+    axes[1].set_xlim(0, 181)
+    axes[1].set_ylim(0, 181)
+    
+    # Access RA and Dec coordinates
     ra1 = axes[1].coords['ra']
     dec1 = axes[1].coords['dec']
-    ra1.set_ticks(number=2, direction='in')
-    dec1.set_ticks(number=0, direction='in')
-    axes[1].text(0.05, 0.95, textstr, transform=axes[1].transAxes, fontsize=14,
-        verticalalignment='top', bbox=props)    
-    
-    # Set the axis limits (zoom into the desired region)
-    axes[1].set_xlim(0, 181)  # Adjust x limits to zoom
-    axes[1].set_ylim(0, 181)  # Adjust y limits to zoom
+
+    # Set the number of ticks for RA and Dec
+    ra1.set_ticks(number=2, direction='in', color='black', size=6)   # Set 5 ticks for RA
+    dec1.set_ticks(number=3, direction='in', color='black', size=6)  # Set 5 ticks for Dec
     
 
-    
-    # Create the colorbar inside the plot
-    # Adjust 'fraction' and 'pad' as needed
+    # Set minor ticks for both axes (RA/Longitude and Dec/Latitude)
+    ra1.set_minor_frequency(5)  # RA or Longitude
+    dec1.set_minor_frequency(5)  # Dec or Latitude
+
+    # Display minor ticks
+    ra1.display_minor_ticks(True)
+    dec1.display_minor_ticks(True)
+
+
     cbar1 = plt.colorbar(im1, ax=axes, orientation='horizontal', fraction=0.046, pad=0.04)
     cbar1.set_ticks([-180, 0, 180])
-
-    # Optional: Adjust the position of the colorbar
-    cbar1.ax.set_position([0.1, 0.2, 0.8160, 0.025])  # [left, bottom, width, height]
+    cbar1.ax.set_position([0.1, 0.2, 0.8160, 0.025])
 
 
 
 
+
+
+    # Third subplot: Velocity width
+    im2 = axes[2].imshow(image1, cmap='inferno', vmin=0, vmax=20, aspect='equal')
+    ra2, dec2 = axes[2].coords['ra'], axes[2].coords['dec']
+    ra2.set_ticks(number=3, direction='in')
+    ra2.set_minor_frequency(5)
+    ra2.set_ticklabel_visible(True)
+    dec2.set_ticks(number=0, direction='in')
+    axes[2].text(0.05, 0.95, textstr, transform=axes[2].transAxes, fontsize=14, verticalalignment='top', bbox=props)
+    axes[2].set_xlim(0, 181)
+    axes[2].set_ylim(0, 181)
     
-    axes[2].set_facecolor("black")
-
-    im2 = axes[2].imshow(image_data, cmap='inferno', vmin=0, vmax=50, aspect='equal')
+    
+    
+    # Access RA and Dec coordinates
     ra2 = axes[2].coords['ra']
     dec2 = axes[2].coords['dec']
-    ra2.set_ticks(number=2, direction='in', color='white')
-    dec2.set_ticks(number=0, direction='in')
-    axes[2].text(0.05, 0.95, textstr, transform=axes[2].transAxes, fontsize=14,
-        verticalalignment='top', bbox=props) 
+
+    # Set the number of ticks for RA and Dec
+    ra2.set_ticks(number=2, direction='in', color='black', size=6)   # Set 5 ticks for RA
+    dec2.set_ticks(number=3, direction='in', color='black', size=6)  # Set 5 ticks for Dec
     
-    # Set the axis limits (zoom into the desired region)
-    axes[2].set_xlim(0, 181)  # Adjust x limits to zoom
-    axes[2].set_ylim(0, 181)  # Adjust y limits to zoom
 
+    # Set minor ticks for both axes (RA/Longitude and Dec/Latitude)
+    ra2.set_minor_frequency(5)  # RA or Longitude
+    dec2.set_minor_frequency(5)  # Dec or Latitude
 
-    # Create the colorbar inside the plot
-    # Adjust 'fraction' and 'pad' as needed
+    # Display minor ticks
+    ra2.display_minor_ticks(True)
+    dec2.display_minor_ticks(True)
+
+    
+    
+
     cbar2 = plt.colorbar(im2, ax=axes, orientation='horizontal', fraction=0.046, pad=0.04)
-    cbar2.set_ticks([0, 25, 50])
-
-    # Optional: Adjust the position of the colorbar
-    cbar2.ax.set_position([0.1, 0.2, 1.2116, 0.025])  # [left, bottom, width, height]
-    tick_color = "white"  # Choose any color here
-    cbar2.ax.tick_params(colors=tick_color)  # Set tick color
-    cbar2.ax.xaxis.set_tick_params(color=tick_color)  # Set color for x-axis ticks
-    cbar2.ax.set_xticklabels(cbar2.get_ticks(), color=tick_color)  # Set color for labels
+    cbar2.set_ticks([0, 10, 20])
+    cbar2.ax.set_position([0.1, 0.2, 0.428, 0.025])
+    cbar2.ax.tick_params(colors='white')
     cbar2.outline.set_edgecolor("white")
 
+    # Titles
+    axes[0].set_title('Integrated intensity', fontsize=12, pad=20)
+    axes[1].set_title('Mean velocity', fontsize=12, pad=20)
+    axes[2].set_title('Effective velocity width', fontsize=12, pad=20)
+    
+    
 
+    # Clear default labels
+    for ax in axes:
+        ax.set_xlabel(' ')
+        ax.set_ylabel(' ')
 
-
-    axes[0].set_title('Effective width ($\mathrm{km\,s^{-1}}$)', fontsize=axes[0].xaxis.label.get_size(), pad=20)  # Remove "pos.eq.ra" and set custom label for first plot
-    axes[1].set_title('Velocity ($\mathrm{km\,s^{-1}}$)', fontsize=axes[1].xaxis.label.get_size(), pad=20)  # Remove "pos.eq.ra" and set custom label for first plot
-    axes[2].set_title('Intensity (K $\mathrm{km\,s^{-1}}$)', fontsize=axes[2].xaxis.label.get_size(), pad=20)  # Remove "pos.eq.ra" and set custom label for first plot
-
-
-    axes[0].set_ylabel(' ')  # Remove "pos.eq.ra" and set custom label for first plot
-
-    axes[0].set_xlabel(' ')  # Remove "pos.eq.ra" and set custom label for first plot
-    axes[1].set_xlabel(' ')  # Remove "pos.eq.ra" and set custom label for first plot
-    axes[2].set_xlabel(' ')  # Remove "pos.eq.ra" and set custom label for first plot
-
-
+    # Adjust layout and add figure labels
     plt.subplots_adjust(wspace=-0.5)
-    
-    
+    fig.text(0.125, 0.5, 'Dec. (J2000)', va='center', rotation='vertical', fontsize=14)
+    fig.text(0.5, -0.05, 'RA (J2000)', ha='center', fontsize=14)
 
-    
-
-    fig.text(0.125, 0.5, 'DEC (J2000)', va='center', rotation='vertical', fontsize=14)  # y-axis label
-    fig.text(0.5, -.05, 'RA (J2000)', ha='center', fontsize=14)  # x-axis label
-
+    # Show and save
     plt.show()
-    fig.savefig("derived products ngc0524.png", format='png', dpi=300, bbox_inches='tight', facecolor='white') 
-    
+    fig.savefig("derived_products_ngc0524.png", format='png', dpi=300, bbox_inches='tight', facecolor='white')
+ 
 
 
 
@@ -3524,7 +3582,7 @@ def perturbedktau(flat_gvd_selected_pixels, flat_gsd_selected_pixels, masked_fla
     gvd_first_half, gvd_second_half = flat_gvd_selected_pixels[:half], flat_gvd_selected_pixels[half:]
     gsd_first_half, gsd_second_half = flat_gsd_selected_pixels[:half], flat_gsd_selected_pixels[half:]
     Q_first_half, Q_second_half = flat_q[:half], flat_q[half:]
-    Q_error_first_half, Q_error_second_half = flat_q[:half], flat_q[half:]
+    Q_error_first_half, Q_error_second_half = flat_q_error[:half], flat_q_error[half:]
     
     # Full arrays
     gvd_full, gsd_full = flat_gvd_selected_pixels, flat_gsd_selected_pixels
@@ -3553,7 +3611,7 @@ def perturbedktau(flat_gvd_selected_pixels, flat_gsd_selected_pixels, masked_fla
     for i in range(num_samples):
         # Perturb Q values with Gaussian noise
         Q_perturb_first = Q_first_half + np.random.normal(loc=0, scale=Q_error_first_half)
-        Q_perturb_second = Q_second_half + np.random.normal(loc=0, scale=Q_error_second_half)
+        Q_perturb_second = Q_second_half + np.random.normal(loc=0, scale=np.abs(Q_error_second_half))
         Q_perturb_full = Q_full + np.random.normal(loc=0, scale=Q_error_full)
     
         # Compute Kendall’s tau for first half
@@ -3657,3 +3715,132 @@ def perturbedktau(flat_gvd_selected_pixels, flat_gsd_selected_pixels, masked_fla
             perturbed_pval_gsd_first_median, perturbed_pval_gsd_second_median, perturbed_pval_gsd_full_median)
     
 
+
+
+
+
+
+
+#%%
+
+
+from scipy.stats import pearsonr
+
+
+
+
+def bootstrap_pearsonr(x, y, n_bootstrap=1000):
+    """
+    Bootstrap the Pearson correlation coefficient and p-value.
+    Returns: mean_r, std_r, mean_p, std_p
+    """
+    r_vals = []
+    p_vals = []
+    mask = np.isfinite(x) & np.isfinite(y)
+    x, y = x[mask], y[mask]
+
+    n = len(x)
+    if n < 2:
+        return np.nan, np.nan, np.nan, np.nan
+
+    for _ in range(n_bootstrap):
+        idx = np.random.choice(n, size=n, replace=True)
+        r, p = pearsonr(x[idx], y[idx])
+        r_vals.append(r)
+        p_vals.append(p)
+
+    return np.mean(r_vals), np.std(r_vals), np.mean(p_vals), np.std(p_vals)
+
+
+
+
+
+
+
+
+
+def plot_q_vs_parameters_side_by_side(flat_q, flat_gsd, flat_gvd, flat_kappa, window_size):
+    """
+    Plot flat_q (y) as function of flat_gsd, flat_gvd, flat_kappa (x)
+    in 3 side-by-side subplots with running median (no error bars).
+    Also computes and displays Pearson correlation coefficient and p-value.
+    """
+    def running_median(x, y, w):
+        sorted_idx = np.argsort(x)
+        x_s = x[sorted_idx]
+        y_s = y[sorted_idx]
+        
+        med_x = []
+        med_y = []
+        half_w = w // 2
+        n = len(x)
+        
+        for i in range(n):
+            start = max(i - half_w, 0)
+            end = min(i + half_w + 1, n)
+            x_win = x_s[start:end]
+            y_win = y_s[start:end]
+            
+            med_x.append(np.median(x_win))
+            med_y.append(np.median(y_win))
+        
+        return np.array(med_x), np.array(med_y)
+    
+    def safe_pearsonr(x, y):
+        mask = np.isfinite(x) & np.isfinite(y)
+        if np.sum(mask) < 2:
+            return np.nan, np.nan  # Not enough data
+        
+        return pearsonr(x[mask], y[mask])
+    
+    
+
+    
+    colors = ['blue', 'red', 'green']
+    
+    # Compute running medians
+    x1, med_q1 = running_median(flat_gvd, flat_q, window_size)
+    x2, med_q2 = running_median(flat_gsd, flat_q, window_size)
+    x3, med_q3 = running_median(flat_kappa, flat_q, window_size)
+    
+    
+    # Compute Pearson correlations
+    r1, r1_std, p1, p1_std = bootstrap_pearsonr(flat_gvd, flat_q)
+    r2, r2_std, p2, p2_std = bootstrap_pearsonr(flat_gsd, flat_q)
+    r3, r3_std, p3, p3_std = bootstrap_pearsonr(flat_kappa, flat_q)
+
+
+
+    print(f"r1: {r1:.3f} ± {r1_std:.3f}, p1: {p1:.3e} ± {p1_std:.3e}")
+    print(f"r2: {r2:.3f} ± {r2_std:.3f}, p2: {p2:.3e} ± {p2_std:.3e}")
+    print(f"r3: {r3:.3f} ± {r3_std:.3f}, p3: {p3:.3e} ± {p3_std:.3e}")
+
+    
+    fig, axs = plt.subplots(1, 3, figsize=(15, 4))
+    
+    
+    axs[0].plot(x1, med_q1, '-', color=colors[0], label=f'$r$ = {r1:.2f} ± {r1_std:.2f}')
+    axs[0].set_xlabel(r'$\rm \sigma_{EW}$ ($\rm {km\,s^{-1}}$)')
+    axs[0].set_ylabel(r'$\rm Q_{T}$')
+    axs[0].legend(loc='best', fontsize=12)
+    axs[0].axis(ymin=10,ymax=35)
+    axs[0].grid(True)
+    
+    axs[1].plot(x2, med_q2, '-', color=colors[1], label=f'$r$ = {r2:.2f} ± {r2_std:.2f}')
+    axs[1].set_xlabel(r'$\rm \Sigma_{g}$ (K $\rm {km\,s^{-1}}$)')
+    axs[1].set_ylabel(r'$\rm Q_{T}$')
+    axs[1].legend(loc='best', fontsize=12)
+    axs[1].axis(ymin=10,ymax=35)
+    axs[1].grid(True)
+    
+    axs[2].plot(x3, med_q3, '-', color=colors[2], label=f'$r$ = {r3:.2f} ± {r3_std:.2f}')
+    axs[2].set_xlabel(r'$\kappa$ ($\rm {km\,s^{-1}kpc^{-1}}$)')
+    axs[2].set_ylabel(r'$\rm Q_{T}$')
+    axs[2].legend(loc='best', fontsize=12)
+    axs[2].axis(ymin=10,ymax=35)
+    axs[2].grid(True)
+    
+    plt.tight_layout()
+    plt.savefig("q_vs_parameters.png", dpi=300, bbox_inches='tight')
+    plt.show()
+    
