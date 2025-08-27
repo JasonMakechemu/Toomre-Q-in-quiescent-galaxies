@@ -20,3 +20,5 @@ Galaxy properties: Defines the celestial coordinates, distance, and inclination 
 This script imports all the necessary functions from Functions_For_Q_NGC0524.py and then defines the parameters for the analysis. It is the control script for executing the code.
 
 **Normalised Qs.py** - This script contains code that normalises Q as a function of radius, and the SMBH sphere of influence respectively. The resultant plots give us an idea of the large scale behaviour of Q total across each of our galaxies. We also see the behavious of Q gas and Q star respectively, which allows for a two-component view of the behaviour of Q.
+
+**Q vs Kappa.py** - Here, correlations between Q and the gaseous paramters are investigated. Q vs kappa (epicyclic frequency), gas surface density, and the gas velocity dispersion. The correlation strength and statistical strength are calculated and displayed on the resultant plots.  
