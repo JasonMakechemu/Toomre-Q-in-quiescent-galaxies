@@ -18,3 +18,5 @@ File names: Specifies the FITS files for the galaxy data and moment maps.
 Galaxy properties: Defines the celestial coordinates, distance, and inclination of the galaxy NGC 0524, which are used as inputs for the functions.
 
 This script imports all the necessary functions from Functions_For_Q_NGC0524.py and then defines the parameters for the analysis. It is the control script for executing the code.
+
+**Normalised Qs.py** - This script contains code that normalises Q as a function of radius, and the SMBH sphere of influence respectively. The resultant plots give us an idea of the large scale behaviour of Q total across each of our galaxies. We also see the behavious of Q gas and Q star respectively, which allows for a two-component view of the behaviour of Q.
