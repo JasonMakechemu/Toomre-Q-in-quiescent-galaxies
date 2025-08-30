@@ -6,53 +6,44 @@ Created on Fri Aug  4 14:52:07 2023
 @author: husmak
 """
 
-
 import math
 import numpy
 import datetime
+import matplotlib
 import numpy as np
-import uncertainties #python package for error propagation
-import photutils.utils #detects and performs photometry of astronomical sources
+import uncertainties
+import photutils.utils 
+import astropy.units as u 
 import jampy as jampy_package
 import matplotlib.pyplot as plt
-from astropy.nddata import CCDData
 
 
 from scipy import stats
 from astropy.io import fits
 from astropy.wcs import WCS
-from astropy import units as u
-from astropy.nddata import Cutout2D
-
-#allows for dealing with coordinate systems in Python
-import astropy.units as u #imports astronomical units
-from astropy.coordinates import SkyCoord  # High-level coordinates
-from astropy.coordinates import Angle, Latitude, Longitude  # Angles
-
 from statistics import median
-from scipy.stats import gaussian_kde
-
-from jampy.mge_vcirc import mge_vcirc
-from jampy.jam_axi_proj import jam_axi_proj
-
-from spectral_cube import SpectralCube
-
-
 from uncertainties import ufloat
-from uncertainties.umath import *
 from uncertainties import unumpy
-from uncertainties import unumpy as unp
 from uncertainties import umath
+from astropy import units as u
 
-import matplotlib
+from uncertainties.umath import *
+from astropy.nddata import CCDData
+from astropy.nddata import Cutout2D
+from scipy.stats import gaussian_kde
+from jampy.mge_vcirc import mge_vcirc
+from spectral_cube import SpectralCube
+from uncertainties import unumpy as unp
+from astropy.coordinates import SkyCoord 
+from jampy.jam_axi_proj import jam_axi_proj
 from matplotlib.ticker import MultipleLocator
+from astropy.coordinates import Angle, Latitude, Longitude
+
+
 
 matplotlib.rcParams['mathtext.fontset'] = 'stix'
 matplotlib.rcParams['font.family'] = 'STIXGeneral'
 matplotlib.rcParams['font.size'] = 14
-
-
-#%%
 
 
 '''
@@ -60,7 +51,6 @@ A data cube is a multi-dimensional ("n-D") array of values. In this case we have
 3D array of values with z, y, x representing the velocity, and the y- and x-coordinates
 respectively. This function opens the fits file and gets the data, header, and info from it.
 '''
-
 
 def open_fits_file(filename):
     #open the .fits file of the elliptical early tpe galaxy NGC 0383
@@ -81,7 +71,6 @@ This code generates a mask for the moment maps, and error maps.
 We have a Gaussian noise distribution withing the data, and we are selecting all pixels
 a certain std deviation away from the peak of the noise distribution. This reduces our
 chance of selecting noisy pixels.
-
 
 However it must be stated that this also removes some of the useful data, so a balance
 must be struck between removing noise, and keeping useful data.
@@ -107,13 +96,12 @@ dimensions and one spectral dimension (the spectral dimension being velocity).
 By default, moments are computed along the spectral dimension, the default is 
 the standard in this code.
 
-We assign the .fits file of NGC 0383 to be a spectral cube, then apply a mask to each 
+We assign the .fits file to be a spectral cube, then apply a mask to each 
 of the generated cubes.
 
 moment 0 is the integrated intensity over the spectral line, the 0th moment, we are 
 observing the CO spectrum over ? wavelength. This is because CO is a proxy for cold H2 
-which is associated with star forming regions, it doesn't track the densest regions of
-stars though (why?).
+which is associated with star forming regions.
 
 CO is the most abundant molecule in a galaxy after H2, but CO is much easier to observe. 
 ALMA looks at the J 2-1 (second) rotational transition, because ALMA is most sensitive to 
@@ -267,19 +255,6 @@ def moment_0_image(position, size_of_cutout, moment_0):
     fig.savefig("Integrated intensity of CO in NGC 0524 (strict mask).png", format='png', dpi=300, bbox_inches='tight')
 
     return moment_0_data
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -459,9 +434,6 @@ def linewidth_image(position, size_of_cutout, cube):
 
 
 
-#%%
-
-
 '''
 ERRORS IN MOMENT MAPS.
 
@@ -477,10 +449,6 @@ def error_for_moment_0():
     
     return error
 
-
-
-
-
 def error_for_moment_1():
     
     mom1_error = CCDData.read('ngc0524_12m+7m_co21_2p5kms_strict_emom1.fits')
@@ -488,9 +456,6 @@ def error_for_moment_1():
     total_error = mom1_error 
     
     return total_error
-
-
-
 
 def error_for_moment_2():
 
@@ -503,12 +468,6 @@ def error_for_moment_2():
 
 
 
-#%%
-
-
-
-
-
 
 
 '''
@@ -516,8 +475,7 @@ Function to convert one arcsec to parcec.
 
 Why does inclination not matter?
 
-does 'actual size'' need perturbing by the distance?
-
+does 'actual size'' need perturbing by the distance? No.
 '''
 
 def arcsec_to_rad(distance_to_galaxy, arcsec_to_radian, inclination_of_galaxy, cos_inclination):
@@ -528,19 +486,6 @@ def arcsec_to_rad(distance_to_galaxy, arcsec_to_radian, inclination_of_galaxy, c
     actual_size = (2 * distance * math.tan(arcsec_to_rad_conversion_factor/2)) * 10**6 #1 arcsec in pc
     
     return actual_size
-
-
-
-
-
-
-
-####################################################################################################################
-
-
-
-
-
 
 
 '''
@@ -557,8 +502,6 @@ def meshgrid_galactocentric_radius(cube, x_cen, y_cen, moment_2_data):
                          (np.arange(moment_2.shape[0]) - y_cen))
     
     return xi, yi
-
-
 
 
 
@@ -606,8 +549,6 @@ def values_for_galactocentric_radius(xi, yi, position_angle, inclination_of_gala
     return cos_a, sin_a, x_proj, y_proj
 
 
-
-
 '''
 Galactocentric radius is r = sqrt(x**2 + y**2), so here I am simply calculating x**2, y**2,
 then taking the square root and defining that as equal to the galactocentric radius.
@@ -615,12 +556,7 @@ then taking the square root and defining that as equal to the galactocentric rad
 It's then plotted onto the screen. The colorbar refers to the radius in arcsec from 
 the CO disk center.
 
-Galactocentric radius is deprojected.
-
-0.146 arcsec per pixel.
-
 BMIN BMAX header is ALMA resolution. (~50 pc)
-
 '''
 
 def get_gcradius(x_proj, y_proj, moment_2, position, size_of_cutout, BMAJ_projected, actual_size):
@@ -640,8 +576,6 @@ def get_gcradius(x_proj, y_proj, moment_2, position, size_of_cutout, BMAJ_projec
     radius_max = 904
     
     
-    
- 
     '''
     making the gc radius map from the black hole soi as measured for this galaxy,
     to the edge of the co disk. This will give us values of Q only between this range,
@@ -653,7 +587,6 @@ def get_gcradius(x_proj, y_proj, moment_2, position, size_of_cutout, BMAJ_projec
     num_bins = int(np.ceil(max_radius/bin_width)) # number of bins
     bin_edges = np.arange(0, (num_bins + 1)*bin_width, bin_width) # upper and lower bin limits in steps of bin width
     
-
     
     '''
     Create a boolean mask for the galactocentric radius within the specified range, true means the
@@ -725,7 +658,6 @@ This functions computes a projected MGE from the intrinsic one in my text table 
 from North 2019 paper. Code from "mge_vcirc_example" from mge_fit package written by Michele
 Cappellari.
 '''
-
 
 def mge_vcirc_example(arcsec_to_radian, inclination_of_galaxy, distance_to_galaxy,
                       actual_size, gravitational_constant, galaxy_black_hole_mass,
@@ -840,11 +772,7 @@ def mge_vcirc_example(arcsec_to_radian, inclination_of_galaxy, distance_to_galax
     fig.savefig('MGE approximation of Circular Velocity of NGC 0524 (strict mask).png', format='png',
                 dpi=600)
  
-    
- 
-    
- 
-    
+     
     '''
     This plots the natural log of the circular velocity against the natural
     log of the radius in arcseconds, along with the associated error.
@@ -871,12 +799,6 @@ def mge_vcirc_example(arcsec_to_radian, inclination_of_galaxy, distance_to_galax
     fig.savefig('MGE approximation of Circular Velocity of NGC 0524 (in ln format strict mask).svg', format='svg', dpi=600)
     fig.savefig('MGE approximation of Circular Velocity of NGC 0524 (in ln format strict mask).png', format='png', dpi=600)
 
-
-
-
-
-
-
     
     '''
     the gradient of the natural log is defined as dlnR, and to get the 
@@ -898,8 +820,7 @@ def mge_vcirc_example(arcsec_to_radian, inclination_of_galaxy, distance_to_galax
     gradient_of_logs = np.gradient(y, x) # where y is ln(V_circ), and x is lnr_gal
     fig1, ax1 = plt.subplots()
     
-   
-  
+ 
     '''
     perturbs y (ln vcirc) going into the gradient equation by the error in the logarithm,
     x could be perturbed by the error in the distance which goes into the arcsec to pc
@@ -949,18 +870,6 @@ def mge_vcirc_example(arcsec_to_radian, inclination_of_galaxy, distance_to_galax
 
 
 
-
- 
-
-
-
-
-
-
-
-
-
-
 '''
 This function generates kappa (epicyclic frequency), required for the Toomre Q parameter 
 calculations for both gas and stars.
@@ -968,7 +877,6 @@ calculations for both gas and stars.
 Kappa is defined in equation ... from Tom's paper titled "title"
 
 As is Q, but Q has a general definition as referenced here ...
-
 '''
 
 
@@ -978,9 +886,6 @@ def get_kappa_values(pi, CO_conversion_factor, radius_range, vcirc, gradient_of_
                      errors_for_y, x, error, moment_2_plot, mass_to_light_ratio_error, 
                      galaxy_inclination_error, black_hole_mass_error):
 
-    
-    
-    
     '''
     surface density of CO in the disk is moment 0; this is multiplied by a CO conversion
     factor as found in Tom's paper (title) to get an estimation of the amount of H2, and 
@@ -1031,8 +936,6 @@ def get_kappa_values(pi, CO_conversion_factor, radius_range, vcirc, gradient_of_
     galaxy as found in my function titled "arcsec_to_rad".
     gradient_of_logs: np.gradient(y, x) the numerical derivative of log y / log x,
     dimensionless.
-        
-    
     '''
     
     kappa = np.sqrt(2) * (vcirc/(radius_range*actual_size)) * np.sqrt(1 + gradient_of_logs) 
@@ -1088,8 +991,6 @@ def get_kappa_values(pi, CO_conversion_factor, radius_range, vcirc, gradient_of_
                                      (eighty_fourth_per_perturbed_kappa-kappa_median))
       
     
-    
-    
 
     from scipy.interpolate import interp1d
 
@@ -1100,12 +1001,10 @@ def get_kappa_values(pi, CO_conversion_factor, radius_range, vcirc, gradient_of_
     galactocentric_radius = galactocentric_radius
 
 
-
     # Define kappa with quadratic decrease
     max_kappa = np.max(kappa)
     min_kappa = np.min(kappa)
     steps = 100000  # Number of steps
-
 
 
     # Calculate the decay constant (lambda)
@@ -1151,17 +1050,9 @@ def get_kappa_values(pi, CO_conversion_factor, radius_range, vcirc, gradient_of_
     plt.grid()
 
 
-
-
-
-
-
-
     # Define kappa with quadratic decrease
     max_kappa_error = np.max(unumpy.std_devs(kappa_with_error))
     min_kappa_error = np.min(unumpy.std_devs(kappa_with_error))
-
-
 
     # Calculate the decay constant (lambda)
     lambda_value_error = -np.log(min_kappa_error / max_kappa_error) / np.max(rad)
@@ -1177,8 +1068,6 @@ def get_kappa_values(pi, CO_conversion_factor, radius_range, vcirc, gradient_of_
 
     # Interpolate kappa values over the 2D radial grid
     kappa_2d_error = interp_func_error(galactocentric_radius)
-
-
 
     kappa_2d_with_error = unumpy.uarray(kappa_2d, np.abs(kappa_2d_error))
 
@@ -1283,16 +1172,11 @@ def plot_kappa(kappa_2d, moment_2, position, size_of_cutout):
     overlay = ax.get_coords_overlay('fk5')
     overlay[0].set_axislabel('Right Ascension (J2000)', fontsize=16)
     overlay[1].set_axislabel('Declination (J2000)', fontsize=16)
-    
-    
   
     kappa_fig.savefig("Map of Kappa parameter in NGC 0524 (strict mask).svg", format='svg', dpi=600)
     kappa_fig.savefig("Map of Kappa parameter in NGC 0524 (strict mask).png", format='png', dpi=600)
     
     plt.show()
-
-
-
 
 
 
@@ -1345,12 +1229,7 @@ def plot_Q(small_sigma, kappa_2d, pi, gravitational_constant,
 
     return Q, Q_gas_to_plot, small_sigma_and_error, big_sigma_and_error
 
-    
-
-    
-
-
-
+  
 
 '''
 Code to calculate the stellar surface density in the region of my CO disk.
@@ -1365,7 +1244,6 @@ That is what the last plot represents.
 Stellar surface density needs no perturbation also; same reason as for Q.
 
 '''
-
 
 def plot_stellar_surface_density(surface_luminosity, moment_2_data, position, size_of_cutout, 
                                  dispersion, axial_ratio, x_squared, y_squared,
@@ -1403,10 +1281,6 @@ def plot_stellar_surface_density(surface_luminosity, moment_2_data, position, si
         # Display minor ticks
         ra.display_minor_ticks(True)
         dec.display_minor_ticks(True)
-
-
-
-
 
         textstr = 'NGC0524'
 
@@ -1447,9 +1321,6 @@ def plot_stellar_surface_density(surface_luminosity, moment_2_data, position, si
     
  
 
-
-
-
 '''
 Using jampy, the stellar velocity dispersion can be determined from the surface_luminosity,
 dispersion, and axial_ratio values from MGE fitting (North et al. for NGC 383). The surface
@@ -1467,8 +1338,6 @@ pass M/L ratio to plot_for_vrms
 All parameters from North et al.
 
 '''
-
-
 def values_needed_for_vrms_plot(surface_luminosity, dispersion, axial_ratio, galaxy_black_hole_mass,
                                 mass_to_light_ratio, radius_range, actual_size):    
     
@@ -1569,9 +1438,6 @@ def plot_for_vrms(surf_lum, sigma_lum, qobs_lum, surf_pot, sigma_pot, qobs_pot, 
 
 
 
-
-
-
 '''
 function to find the stellar velocity dispersion as a function of radius.
 '''
@@ -1606,8 +1472,6 @@ def get_vrms_values(unique_radii, sorted_radii,
     vrms_2d = np.zeros_like(galactocentric_radius) 
     
     vrms_2d_error = np.zeros_like(galactocentric_radius) 
-    
-    
     
     '''
     this code takes a long time to run because of the amount of values in unique_radii, 
@@ -1665,9 +1529,6 @@ def plot_vrms(vrms_2d, moment_2, position, size_of_cutout, vrms_2d_with_error):
 
 
 
-
-
-
 '''
 Here I am defining Q_star and plotting the map for Q_star. This is according to equation (1)
 in Williams et al, yet to be published. However, now including V_rms and 
@@ -1676,9 +1537,6 @@ stellar_density_values instead of small_ and big_sigma as seen in Q (which is fo
 No need for perturbation because components in Q star already have the errors that will be
 propagated through.
 '''
-
-
-
 def plot_Q_star(vrms_2d, kappa_2d, pi, gravitational_constant, 
                 stellar_density_values, moment_2, position, 
                 size_of_cutout, vrms_2d_with_error, kappa_2d_with_error,
@@ -1698,8 +1556,6 @@ def plot_Q_star(vrms_2d, kappa_2d, pi, gravitational_constant,
     
     hdu = fits.ImageHDU(data=Q_star_to_plot, header=moment_2.hdu.header)
     cutout = Cutout2D(hdu.data, position, size_of_cutout, wcs=moment_2.wcs)
-    
-  
 
     plt.figure(figsize=(8, 8))
     
@@ -1731,10 +1587,6 @@ def plot_Q_star(vrms_2d, kappa_2d, pi, gravitational_constant,
     
     return Q_star, Q_star_to_plot, flat_Q_star
     
-
-
-
-
 
 
 '''
@@ -1773,12 +1625,7 @@ def plot_Q_total(Q, Q_star, moment_2, position, size_of_cutout, gal_cutout_selec
     
     hdu = fits.ImageHDU(data=Q_total_to_plot, header=moment_2.hdu.header)
     Q_total_cutout = Cutout2D(hdu.data, position, size_of_cutout, wcs=moment_2.wcs)
-    
-    
-    
-    
-    
-    
+   
     plt.figure(figsize=(5, 4))
 
     Q_total_fig = plt.figure(figsize=(5, 4))
@@ -1822,9 +1669,6 @@ def plot_Q_total(Q, Q_star, moment_2, position, size_of_cutout, gal_cutout_selec
     cbar = plt.colorbar(image_of_Q_total, pad=0)
     cbar.set_label(r'$Q_{total}$', size=14, labelpad=10)
     
-    
-
-    
     #to get cordinates in ra and dec
     '''
     overlay = ax.get_coords_overlay('fk5')
@@ -1843,11 +1687,7 @@ def plot_Q_total(Q, Q_star, moment_2, position, size_of_cutout, gal_cutout_selec
     selected_pixels_Q_total = np.where(gal_cutout_selected_pixels.data, Q_total_cutout.data, np.nan)
     plt.imshow(selected_pixels_Q_total, cmap='inferno', vmin=0, vmax=5, origin='lower')
          
-    
-    
-    
-    
-    
+  
     return Q_total, Q_total_to_plot, Q_total_cutout, selected_pixels_Q_total
     
 
@@ -1859,9 +1699,6 @@ Plots error map for Q_total, for the sake of comparing it with Q_total
 '''
 
 def Q_total_error_map(moment_2, position, size_of_cutout, Q_total, gal_cutout_selected_pixels):
-    
-    
-    
 
     '''
     simply takes the error from Q after all errors are propagated, and plots it.
@@ -1875,7 +1712,6 @@ def Q_total_error_map(moment_2, position, size_of_cutout, Q_total, gal_cutout_se
    
     Q_error_fig = plt.figure(figsize=(8, 8))
     ax = Q_error_fig.add_subplot(projection=Q_error_cutout.wcs) #to get coordinates in ra and dec
-
 
     image_of_Q_total = plt.imshow(Q_error_cutout.data, cmap='inferno',
                                   vmin=0, vmax=3, origin='lower') 
@@ -1894,29 +1730,11 @@ def Q_total_error_map(moment_2, position, size_of_cutout, Q_total, gal_cutout_se
 
     plt.show()
     
-    
     plt.figure(figsize=(8, 8))    
     selected_pixels_Q_total_error = np.where(gal_cutout_selected_pixels.data, Q_error_cutout.data, np.nan)
     plt.imshow(selected_pixels_Q_total_error, cmap='inferno', vmin=0, vmax=5, origin='lower')
-      
-        
-    
-    
-    
+       
     return Q_total_error_to_plot, Q_error_cutout, selected_pixels_Q_total_error
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1965,8 +1783,6 @@ def generate_q_and_r_arrays(Q, Q_total, galactocentric_radius,
     masked_Q_total_err[masked_idx] = np.nan    
     masked_QvR_total = unp.uarray(masked_Q_total_val, masked_Q_total_err) # Qvr - Q vs R - Q against R
      
-
-    
     
     '''
     Q total and Q total error
@@ -1975,14 +1791,12 @@ def generate_q_and_r_arrays(Q, Q_total, galactocentric_radius,
     Q_error_to_plot = unumpy.std_devs(QvR_total)
 
 
-
     '''
     Q total and Q total error (masked)
     '''
     masked_Q_to_plot = unumpy.nominal_values(masked_QvR_total)  
     masked_Q_error_to_plot = unumpy.std_devs(masked_QvR_total)
     
-
 
     '''
     flattens to 1d so they can be plotted, sorts with galactocentric radius.
@@ -2048,7 +1862,6 @@ def generate_q_and_r_arrays(Q, Q_total, galactocentric_radius,
 
 
 
-
 def q_as_func_of_r(flat_gc, flat_q, qrfig, flat_q_error,
                    Q_total_error_to_plot, axs, actual_size,
                    Q_total_cutout, Q_error_cutout, black_hole_soi,
@@ -2077,10 +1890,7 @@ def q_as_func_of_r(flat_gc, flat_q, qrfig, flat_q_error,
     masked_medianerror = []
     masked_lowpercentileerror = []
     masked_highpercentileerror = []    
-    
-    
-    
-    
+      
     flat_error_of_q = (Q_error_cutout.data).flatten()
     median_error_of_q = np.nanmedian(flat_error_of_q)
 
@@ -2088,9 +1898,6 @@ def q_as_func_of_r(flat_gc, flat_q, qrfig, flat_q_error,
     masked_flat_error_of_q = (selected_pixels_Q_total_error).flatten()
     masked_median_error_of_q = np.nanmedian(masked_flat_error_of_q)
     
-
-
-
     for i in range(len(flat_gc)):
         if 0 <= i < len(flat_gc):
             data_window = flat_q[i:int(i+(bin_size))]  # Use bin_size instead of fixed 20
@@ -2120,9 +1927,6 @@ def q_as_func_of_r(flat_gc, flat_q, qrfig, flat_q_error,
     print("Y ERROR BAR SIZE", y_errorbarsize)
     
 
-
-
-
     for i in range(len(masked_flat_gc)):
         if 0 <= i < len(masked_flat_gc) - int(i+bin_size):  # Ensure within bounds
             masked_data_window = masked_flat_q[i:int(i+bin_size)]
@@ -2151,9 +1955,6 @@ def q_as_func_of_r(flat_gc, flat_q, qrfig, flat_q_error,
         
     masked_y_errorbarsize = masked_median_error_of_q
     print("Y ERROR BAR SIZE", masked_y_errorbarsize)
- 
-
-
 
     # Example usage (replace with your actual data)
     x_data = flat_q
@@ -2191,10 +1992,7 @@ def q_as_func_of_r(flat_gc, flat_q, qrfig, flat_q_error,
     plt.scatter((bin_centers), mean_bin_data, color='red')
     plt.scatter((bin_centers), median_bin_data, color='green')
 
-
-
-
-    
+   
     '''
     Plot each value of Q, followed by the 16th and 84th percentile fill, then the median of
     every Q at a given radius.
@@ -2202,9 +2000,7 @@ def q_as_func_of_r(flat_gc, flat_q, qrfig, flat_q_error,
     
     funcqr, axqr = plt.subplots(figsize=(10, 8))
   
-    
-    
- 
+
     '''    
     Place a representative error bar in corner of 'Q as function of R' plot.
     '''
@@ -2240,7 +2036,6 @@ def q_as_func_of_r(flat_gc, flat_q, qrfig, flat_q_error,
     my_line = plt.axvline(x=black_hole_soi, color='black', ls='--', lw=2, zorder=5, label='$R_\mathrm{SOI}$') 
     #my_other_line = plt.axvline(x=299.634, color='blue', ls='--', lw=2, zorder=6, label='$R_\mathrm{disk}$') #extent of co disk
 
-
     #sets minor ticks
     minor_locator = MultipleLocator(5)
     axqr.xaxis.set_minor_locator(minor_locator)
@@ -2266,13 +2061,7 @@ def q_as_func_of_r(flat_gc, flat_q, qrfig, flat_q_error,
     
     plt.show()
     
-    
-    
-    
-    
 
-
-    
     plt.figure(figsize=(5, 4))
 
     Q_total_fig = plt.figure(figsize=(5, 4))
@@ -2335,13 +2124,7 @@ def q_as_func_of_r(flat_gc, flat_q, qrfig, flat_q_error,
     
     
     
-    
-    
-    
-    
-
-    
-    
+ 
     
     fig1 = plt.figure(figsize=(15, 5))
     ax1 = fig1.add_subplot(121)
@@ -2463,12 +2246,7 @@ def q_as_func_of_r(flat_gc, flat_q, qrfig, flat_q_error,
     fig1.savefig("Combined_plot_0524.png", format='png', dpi=300, bbox_inches='tight')
     
     plt.show()
-    
-        
-    
-    
 
-    
     return data_window, medians, lowpercentile, highpercentile, mean_bin_data, median_bin_data, binned_x
     
     
@@ -2506,16 +2284,6 @@ def variance_from_median(masked_flat_q): #asymptotic_variance_median
 
 
 
-
-
-
-
-
-
-
-
-
-    
     
 def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_with_error,
                           stellar_density_values_and_error, kappa_2d_with_error,
@@ -2611,11 +2379,6 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     flat_gcr_selected_pixels = np.where(gal_cutout_selected_pixels.data, gal_cutout.data, np.nan).flatten()
     
 
-
-
-
-
-
     
     '''
     flattens to 1d so they can be plotted, sorts by the galactocentric radius.
@@ -2642,10 +2405,7 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     flat_gcr_selected_pixels = flat_gcr_selected_pixels[selected_pixels_ind]    
         
  
-    
- 
-    
-    
+   
     not_nan_idx = np.where(~np.isnan(flat_q))
     
     flat_gcr = flat_gcr[not_nan_idx]
@@ -2688,10 +2448,6 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     flat_ef_selected_pixels = flat_ef_selected_pixels[selected_pixels_not_nan_idx]      
 
 
-
-
-
-
     medians_gvd = []
     medians_gsd = []
     medians_svd = []
@@ -2710,9 +2466,7 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     highpercentile_svd = []
     highpercentile_ssd = []
     highpercentile_ef = []
-
-  
-    
+   
             
     for i in range(len(flat_gcr_gvd)):
         if np.logical_and(i > 0, i < len(flat_gcr_gvd)):
@@ -2777,8 +2531,6 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
             lowpercentile_ef.append(np.nan)
             highpercentile_ef.append(np.nan) 
         medians_ef.append(np.nanmedian(ef_data_window))
-
-
 
 
     '''
@@ -2869,9 +2621,7 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     plt.show()
    
     
-   
-    
-   
+ 
     
     '''
     plot q and stellar velocity dispersion on same graph
@@ -2915,11 +2665,7 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     plt.show()
       
     
-    
-    
-    
-    
-    
+   
     
     '''
     plot q and gas surface density on same graph
@@ -2966,8 +2712,6 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     fig.savefig("Q and Gaseous Surface Density NGC 0524 (strict mask).png", format='png', dpi=600)                 
 
     plt.show()
-
-    
 
 
 
@@ -3020,11 +2764,6 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
 
 
 
-
-
-
-
-
     mfuncqsvd, maxqsvd = plt.subplots(figsize=(8, 8))
 
     plt.scatter(flat_svd_selected_pixels, masked_flat_q, marker='o', color='black', alpha=1, s=1.25, edgecolors='none', label='ktau statistic = ' + str(masked_ktau_Q_gsd[0]))
@@ -3050,12 +2789,6 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     plt.show()
 
 
-
-
-
-
-
-
     mfuncqgsd, maxqgsd = plt.subplots(figsize=(5, 4))
 
     plt.scatter(flat_gsd_selected_pixels, masked_flat_q, marker='o', color='black', alpha=1, s=1.25, edgecolors='none', label='Kendall-Tau statistic = ' + str(round(ktau_Q_gsd[0], 2)))
@@ -3065,7 +2798,6 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     plt.xticks(np.arange(0, 401, 100))
     mfuncqgsd.savefig("masked q vs gsd ngc0524", dpi=300, bbox_inches='tight')
     plt.show()
-
 
 
 
@@ -3080,11 +2812,7 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     plt.show()
     
     
-    
-    
-    
-    
-    
+ 
     fig1 = plt.figure(figsize=(15, 5))
     ax1 = fig1.add_subplot(121)
     ax2 = fig1.add_subplot(122)
@@ -3198,9 +2926,6 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     
 
 
-
-
-
     '''
     second half of the arrays
     ''' 
@@ -3239,7 +2964,6 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     tick_locator = plt.MultipleLocator(200)
     cbar.locator = tick_locator
     cbar.update_ticks()
-    
     
     
     ax1.set_xlabel(r"Molecular gas effective width - $\rm \sigma_{EW}$ ($\rm {km\,s^{-1}}$)", fontsize=14)
@@ -3291,8 +3015,6 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
 
 
 
-
-
     '''
     first half of the arrays
     ''' 
@@ -3330,8 +3052,7 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     tick_locator = plt.MultipleLocator(200)
     cbar.locator = tick_locator
     cbar.update_ticks()
-    
-    
+     
     
     ax1.set_xlabel(r"Molecular gas effective width - $\rm \sigma_{EW}$ ($\rm {km\,s^{-1}}$)", fontsize=14)
     ax1.set_ylabel(r'$\rm Q_{T}$', fontsize=14)
@@ -3381,13 +3102,6 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
     plt.show()
 
 
-
-
-
-
-
-
-
     return (two_dplot_gaseous_velocity_dispersion, two_dplot_gaseous_surface_density,
             two_dplot_stellar_velocity_dispersion, two_dplot_stellar_surface_density,
             two_dplot_epicyclic_frequency, flat_gvd, flat_gsd, flat_svd, flat_ssd,
@@ -3395,9 +3109,6 @@ def components_of_both_Qs(small_sigma_and_error, big_sigma_and_error, vrms_2d_wi
             flat_gsd_selected_pixels, flat_kappa)
 
      
-    
-    
-
 
 def plotderivedproducts(position, size_of_cutout, cube, sigma_map_data, moment_1_data, moment_0_data, moment_0, mean_velocity):
     image_data = moment_0.data
@@ -3414,10 +3125,6 @@ def plotderivedproducts(position, size_of_cutout, cube, sigma_map_data, moment_1
 
     textstr = 'NGC0524'
     props = dict(boxstyle='square', facecolor='white', alpha=0.5)
-    
-    
-    
-
     
     
 
@@ -3459,9 +3166,6 @@ def plotderivedproducts(position, size_of_cutout, cube, sigma_map_data, moment_1
     cbar0.outline.set_edgecolor("black")
 
 
-
-
-
     # Second subplot: Mean velocity
     im1 = axes[1].imshow(image2, cmap='RdBu_r', vmin=-180, vmax=180, aspect='equal')
     ra1, dec1 = axes[1].coords['ra'], axes[1].coords['dec']
@@ -3494,9 +3198,6 @@ def plotderivedproducts(position, size_of_cutout, cube, sigma_map_data, moment_1
     cbar1 = plt.colorbar(im1, ax=axes, orientation='horizontal', fraction=0.046, pad=0.04)
     cbar1.set_ticks([-180, 0, 180])
     cbar1.ax.set_position([0.1, 0.2, 0.8160, 0.025])
-
-
-
 
 
 
@@ -3560,21 +3261,12 @@ def plotderivedproducts(position, size_of_cutout, cube, sigma_map_data, moment_1
     plt.show()
     fig.savefig("derived_products_ngc0524.png", format='png', dpi=300, bbox_inches='tight', facecolor='white')
  
-
-
-
-
-
-        
+       
     
     
 def perturbedktau(flat_gvd_selected_pixels, flat_gsd_selected_pixels, masked_flat_q,
                   masked_flat_q_error, flat_q, flat_q_error):
     
-
-        
-
-
     # Define halves
     half = len(flat_gvd_selected_pixels) // 2
     
@@ -3718,16 +3410,7 @@ def perturbedktau(flat_gvd_selected_pixels, flat_gsd_selected_pixels, masked_fla
 
 
 
-
-
-
-#%%
-
-
 from scipy.stats import pearsonr
-
-
-
 
 def bootstrap_pearsonr(x, y, n_bootstrap=1000):
     """
@@ -3750,12 +3433,6 @@ def bootstrap_pearsonr(x, y, n_bootstrap=1000):
         p_vals.append(p)
 
     return np.mean(r_vals), np.std(r_vals), np.mean(p_vals), np.std(p_vals)
-
-
-
-
-
-
 
 
 
